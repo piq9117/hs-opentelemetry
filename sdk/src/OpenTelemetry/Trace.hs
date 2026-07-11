@@ -172,6 +172,7 @@ import OpenTelemetry.Baggage (decodeBaggageHeader)
 import qualified OpenTelemetry.Baggage as Baggage
 import OpenTelemetry.Context (Context)
 import OpenTelemetry.Environment
+import OpenTelemetry.Exporter.Handle.Span (defaultFormatter, stdoutExporter')
 import OpenTelemetry.Exporter.OTLP.Span (loadExporterEnvironmentVariables, otlpExporter)
 import OpenTelemetry.Exporter.Span (SpanExporter)
 import OpenTelemetry.Processor.Batch.Span (BatchTimeoutConfig (..), batchProcessor, batchTimeoutConfig)
@@ -414,11 +415,7 @@ getTracerProviderInitializationOptions' rs = do
             Nothing -> baseRs
             Just name ->
               mergeResources (mkResource ["service.name" .= name]) baseRs
-      processors <- case exporters of
-        [] -> do
-          pure []
-        e : _ -> do
-          pure <$> batchProcessor processorConf e
+      processors <- traverse (batchProcessor processorConf) exporters
       let providerOpts =
             emptyTracerProviderOptions
               { tracerProviderOptionsIdGenerator = defaultIdGenerator
@@ -530,6 +527,7 @@ knownExporters =
         otlpConfig <- loadExporterEnvironmentVariables
         otlpExporter otlpConfig
     )
+  , ("console", pure $ stdoutExporter' defaultFormatter)
   , ("jaeger", error "Jaeger exporter not implemented")
   , ("zipkin", error "Zipkin exporter not implemented")
   ]
